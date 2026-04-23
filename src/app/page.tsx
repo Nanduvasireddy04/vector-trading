@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -20,11 +21,15 @@ export default function Home() {
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+          <Link href="/signup">
             <Button size="lg">Get Started</Button>
+          </Link>
+          <Link href="/login">
             <Button size="lg" variant="outline">
-              View Roadmap
+              Log In
             </Button>
-          </div>
+          </Link>
+        </div>
         </section>
 
         <section className="grid gap-6 md:grid-cols-3">
