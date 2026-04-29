@@ -8,6 +8,7 @@ import { PositionSummary } from "@/features/stocks/components/PositionSummary";
 import { RecentStockOrders } from "@/features/stocks/components/RecentStockOrders";
 import { createClient } from "@/lib/supabase/server";
 import { LivePrice } from "@/features/stocks/components/LivePrice";
+import { ChartTimeframeSelector } from "@/features/stocks/components/ChartTimeframeSelector";
 
 type Props = {
   params: Promise<{ symbol: string }>;
@@ -82,11 +83,13 @@ export default async function StockPage({ params }: Props) {
 
       {/* Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Chart */}
-        <div className="md:col-span-2">
-          <StockChart candles={candles} />
-        </div>
 
+        {/* Chart */}
+        <div className="md:col-span-2 space-y-3">
+        <ChartTimeframeSelector />
+        <StockChart candles={candles} />
+      </div>
+      
         {/* Right Panel */}
         <div className="space-y-6">
           {/* Trade Panel */}

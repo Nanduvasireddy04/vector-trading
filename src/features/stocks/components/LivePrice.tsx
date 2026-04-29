@@ -37,7 +37,7 @@
 //   );
 // }
 
-// "use client";
+//3 "use client";
 
 // import { useEffect, useState } from "react";
 
@@ -95,6 +95,8 @@
 //   );
 // }
 
+// 
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -108,6 +110,7 @@ export function LivePrice({ symbol, initialPrice }: Props) {
   const [price, setPrice] = useState(initialPrice);
   const [previousPrice, setPreviousPrice] = useState(initialPrice);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [flash, setFlash] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -115,23 +118,30 @@ export function LivePrice({ symbol, initialPrice }: Props) {
       const data = await res.json();
 
       if (data?.price) {
-        setPreviousPrice((prev) => prev ?? data.price);
+        setPreviousPrice(price);
         setPrice(data.price);
         setLastUpdated(new Date());
+
+        if (data.price !== price) {
+          setFlash(true);
+          setTimeout(() => setFlash(false), 600);
+        }
       }
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [symbol]); // 🔥 remove price dependency
+  }, [symbol, price]);
 
   const change = price - previousPrice;
-  const percent =
-    previousPrice !== 0 ? (change / previousPrice) * 100 : 0;
-
+  const percent = previousPrice !== 0 ? (change / previousPrice) * 100 : 0;
   const isUp = change >= 0;
 
   return (
-    <div className="space-y-1">
+    <div
+      className={`space-y-1 rounded-lg p-2 transition-colors duration-500 ${
+        flash ? (isUp ? "bg-green-50" : "bg-red-50") : ""
+      }`}
+    >
       <div
         className={`text-2xl font-semibold ${
           isUp ? "text-green-600" : "text-red-600"
@@ -140,11 +150,7 @@ export function LivePrice({ symbol, initialPrice }: Props) {
         ${price.toFixed(2)}
       </div>
 
-      <div
-        className={`text-sm ${
-          isUp ? "text-green-600" : "text-red-600"
-        }`}
-      >
+      <div className={`text-sm ${isUp ? "text-green-600" : "text-red-600"}`}>
         {isUp ? "+" : ""}
         {change.toFixed(2)} ({percent.toFixed(2)}%)
       </div>

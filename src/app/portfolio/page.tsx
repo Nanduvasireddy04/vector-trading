@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { AutoRefresh } from "@/components/AutoRefresh";
 
 async function getQuote(symbol: string) {
   const apiKey = process.env.FINNHUB_API_KEY;
@@ -113,10 +114,15 @@ export default async function PortfolioPage() {
   const totalUnrealizedPnL = holdingsValue - totalCostBasis;
 
   return (
+    
     <DashboardShell userEmail={userData.user.email ?? "User"}>
+      <AutoRefresh intervalMs={15000} />
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
+          <p className="text-xs text-muted-foreground">
+          Portfolio refreshes every 15 seconds
+        </p>
           <p className="text-muted-foreground">
             Track simulated holdings, buying power, and unrealized performance.
           </p>
