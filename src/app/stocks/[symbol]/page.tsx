@@ -5,8 +5,9 @@ import { getPolygonCandles } from "@/lib/polygon";
 import { StockChart } from "@/features/stocks/components/StockChart";
 import { TradePanel } from "@/features/stocks/components/TradePanel";
 import { PositionSummary } from "@/features/stocks/components/PositionSummary";
-import { createClient } from "@/lib/supabase/server";
 import { RecentStockOrders } from "@/features/stocks/components/RecentStockOrders";
+import { createClient } from "@/lib/supabase/server";
+import { LivePrice } from "@/features/stocks/components/LivePrice";
 
 type Props = {
   params: Promise<{ symbol: string }>;
@@ -22,70 +23,84 @@ export default async function StockPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Fetch market data
   const [quote, company, candles] = await Promise.all([
     getQuote(symbol),
     getCompanyProfile(symbol),
     getPolygonCandles(symbol),
   ]);
 
-  let { data: asset } = await supabase
-  .from("assets")
-  .select("id, symbol")
-  .ilike("symbol", symbol)
-  .maybeSingle();
-
-if (!asset) {
-  const { data: newAsset, error } = await supabase
+  // 🔥 ONLY SELECT — NO INSERT
+  const { data: asset } = await supabase
     .from("assets")
-    .insert({
-      symbol,
-    })
     .select("id, symbol")
-    .single();
-
-  if (error) {
-    return <main className="p-6">Could not create asset: {error.message}</main>;
-  }
-
-  asset = newAsset;
-}
-
-  const { data: position } = await supabase
-    .from("positions")
-    .select("quantity, average_cost")
-    .eq("user_id", user?.id)
-    .eq("asset_id", asset.id)
+    .ilike("symbol", symbol)
     .maybeSingle();
 
-  const { data: recentOrders } = await supabase
-    .from("orders")
-    .select("id, side, quantity, estimated_price, created_at")
-    .eq("user_id", user?.id)
-    .eq("asset_id", asset.id)
-    .order("created_at", { ascending: false })
-    .limit(5);
+  // Safe defaults
+  let position = null;
+  let recentOrders: {
+  id: string;
+  side: string;
+  quantity: number;
+  estimated_price: number;
+  created_at: string;
+}[] = [];
+
+  if (asset) {
+    const { data: positionData } = await supabase
+      .from("positions")
+      .select("quantity, average_cost")
+      .eq("user_id", user?.id)
+      .eq("asset_id", asset.id)
+      .maybeSingle();
+
+    const { data: ordersData } = await supabase
+      .from("orders")
+      .select("id, side, quantity, estimated_price, created_at")
+      .eq("user_id", user?.id)
+      .eq("asset_id", asset.id)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    position = positionData;
+    recentOrders = ordersData ?? [];
+  }
 
   return (
     <main className="p-6 space-y-6">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">{symbol}</h1>
         <p className="text-muted-foreground">
-          {company.name  || "Company Name"}
+          {company.name || "Company Name"}
         </p>
       </div>
 
-      <div className="text-2xl font-semibold">
-        ${quote.c?.toFixed(2) || "0.00"}
-      </div>
+      {/* Live Price */}
+      <LivePrice symbol={symbol} initialPrice={quote.c} />
 
+      {/* Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Chart */}
         <div className="md:col-span-2">
           <StockChart candles={candles} />
         </div>
 
+        {/* Right Panel */}
         <div className="space-y-6">
-          <TradePanel assetId={asset.id} symbol={symbol} />
+          {/* Trade Panel */}
+          {asset ? (
+            <TradePanel assetId={asset.id} symbol={symbol} />
+          ) : (
+            <div className="rounded-xl border p-4">
+              <p className="text-muted-foreground">
+                Add {symbol} to your watchlist before trading.
+              </p>
+            </div>
+          )}
 
+          {/* Position */}
           <PositionSummary
             symbol={symbol}
             quantity={position?.quantity ?? 0}
@@ -93,7 +108,8 @@ if (!asset) {
             currentPrice={quote.c}
           />
 
-          <RecentStockOrders orders={recentOrders ?? []} />
+          {/* Orders */}
+          <RecentStockOrders orders={recentOrders} />
         </div>
       </div>
     </main>
