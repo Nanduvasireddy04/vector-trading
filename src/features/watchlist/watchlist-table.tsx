@@ -3,9 +3,11 @@
 import { useEffect, useState, useTransition } from "react";
 import { removeFromWatchlist } from "@/features/watchlist/actions";
 import { Button } from "@/components/ui/button";
+import { TradeForm } from "@/features/trading/trade-form";
 
 type WatchlistItem = {
   id: string;
+  asset_id: string;
   created_at: string;
   assets:
     | {
@@ -120,6 +122,9 @@ export function WatchlistTable({ items }: WatchlistTableProps) {
                 <p className="text-2xl font-bold">
                   {quote ? `$${quote.currentPrice.toFixed(2)}` : "Loading..."}
                 </p>
+                {asset?.symbol ? (
+                <TradeForm assetId={item.asset_id} symbol={asset.symbol} />
+                ) : null}
               </div>
 
               <div>

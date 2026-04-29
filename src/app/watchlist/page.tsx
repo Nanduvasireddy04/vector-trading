@@ -18,6 +18,7 @@ export default async function WatchlistPage() {
     .select(
       `
       id,
+      asset_id,
       created_at,
       assets (
         symbol,
