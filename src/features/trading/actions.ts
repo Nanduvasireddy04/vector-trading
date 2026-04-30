@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createPortfolioSnapshot } from "@/features/portfolio/actions";
 
 type PlaceMarketOrderInput = {
   assetId: string;
@@ -134,6 +135,29 @@ export async function placeMarketOrder(input: PlaceMarketOrderInput) {
       amount: -orderValue,
       transaction_type: "buy_order",
     });
+
+        // ---- SNAPSHOT AFTER BUY ----
+    const newCashBalance = Number(profile.cash_balance) - orderValue;
+
+    // Get updated positions value
+    const { data: positions } = await supabase
+      .from("positions")
+      .select("quantity, average_cost")
+      .eq("user_id", userId);
+
+    const holdingsValue =
+      positions?.reduce(
+        (sum, p) => sum + Number(p.quantity) * Number(p.average_cost),
+        0
+      ) ?? 0;
+
+    const accountValue = newCashBalance + holdingsValue;
+
+    await createPortfolioSnapshot({
+      accountValue,
+      cashBalance: newCashBalance,
+      holdingsValue,
+    });
   }
 
   if (input.side === "sell") {
@@ -200,6 +224,30 @@ export async function placeMarketOrder(input: PlaceMarketOrderInput) {
       amount: orderValue,
       transaction_type: "sell_order",
     });
+
+    // ---- SNAPSHOT AFTER SELL ----  
+    const newCashBalance = Number(profile.cash_balance) + orderValue;
+        
+    // Get updated positions value
+    const { data: positions } = await supabase
+      .from("positions")
+      .select("quantity, average_cost")
+      .eq("user_id", userId);
+
+    const holdingsValue =
+      positions?.reduce(
+        (sum, p) => sum + Number(p.quantity) * Number(p.average_cost),
+        0
+      ) ?? 0;
+      
+    const accountValue = newCashBalance + holdingsValue;  
+    
+    await createPortfolioSnapshot({
+      accountValue,
+      cashBalance: newCashBalance,
+      holdingsValue,
+    });
+
   }
 
   revalidatePath("/watchlist");

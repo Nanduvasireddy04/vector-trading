@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import Link from "next/link";
+import { PortfolioValueChart } from "@/features/portfolio/PortfolioValueChart";
 
 
 async function getQuote(symbol: string) {
@@ -115,6 +116,21 @@ export default async function PortfolioPage() {
   );
   const totalUnrealizedPnL = holdingsValue - totalCostBasis;
 
+  const { data: snapshots } = await supabase
+  .from("portfolio_snapshots")
+  .select("account_value, created_at")
+  .eq("user_id", userData.user.id)
+  .order("created_at", { ascending: true });
+
+const chartData =
+  snapshots?.map((snapshot) => ({
+    date: new Date(snapshot.created_at).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    }),
+    value: Number(snapshot.account_value),
+  })) ?? [];
+
   return (
     
     <DashboardShell userEmail={userData.user.email ?? "User"}>
@@ -122,6 +138,9 @@ export default async function PortfolioPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
+
+            <PortfolioValueChart data={chartData} />
+
           <p className="text-xs text-muted-foreground">
           Portfolio refreshes every 15 seconds
         </p>
