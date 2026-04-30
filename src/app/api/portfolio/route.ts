@@ -102,6 +102,32 @@ export async function GET() {
   const totalUnrealizedPnLPercent =
     totalCostBasis > 0 ? (totalUnrealizedPnL / totalCostBasis) * 100 : 0;
 
+  const positionCount = portfolioPositions.length;
+
+  const bestPerformer =
+    portfolioPositions.length > 0
+      ? portfolioPositions.reduce((best, current) =>
+          current.unrealizedPnLPercent > best.unrealizedPnLPercent
+            ? current
+            : best
+        )
+      : null;
+
+  const worstPerformer =
+    portfolioPositions.length > 0
+      ? portfolioPositions.reduce((worst, current) =>
+          current.unrealizedPnLPercent < worst.unrealizedPnLPercent
+            ? current
+            : worst
+        )
+      : null;
+
+  const allocation = portfolioPositions.map((position) => ({
+    symbol: position.symbol,
+    allocationPercent:
+      holdingsValue > 0 ? (position.marketValue / holdingsValue) * 100 : 0,
+  }));
+
   const { data: snapshots } = await supabase
     .from("portfolio_snapshots")
     .select("account_value, created_at")
@@ -118,13 +144,17 @@ export async function GET() {
     })) ?? [];
 
   return NextResponse.json({
-    accountValue,
-    cashBalance,
-    holdingsValue,
-    totalCostBasis,
-    totalUnrealizedPnL,
-    totalUnrealizedPnLPercent,
-    positions: portfolioPositions,
-    chartData,
-  });
+  accountValue,
+  cashBalance,
+  holdingsValue,
+  totalCostBasis,
+  totalUnrealizedPnL,
+  totalUnrealizedPnLPercent,
+  positionCount,
+  bestPerformer,
+  worstPerformer,
+  allocation,
+  positions: portfolioPositions,
+  chartData,
+});
 }

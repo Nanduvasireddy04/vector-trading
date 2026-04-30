@@ -28,6 +28,10 @@ type PortfolioData = {
   totalCostBasis: number;
   totalUnrealizedPnL: number;
   totalUnrealizedPnLPercent: number;
+  positionCount: number;
+  bestPerformer: Performer | null;
+  worstPerformer: Performer | null;
+  allocation: Allocation[];
   positions: Position[];
   chartData: ChartPoint[];
 };
@@ -107,6 +111,61 @@ export function PortfolioLiveView() {
           </p>
         </div>
       </div>
+      
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="rounded-2xl border p-6">
+          <h2 className="font-semibold">Positions</h2>
+          <p className="mt-2 text-3xl font-bold">{data.positionCount}</p>
+        </div>
+
+        <div className="rounded-2xl border p-6">
+          <h2 className="font-semibold">Best Performer</h2>
+          <p className="mt-2 text-2xl font-bold">
+            {data.bestPerformer?.symbol ?? "-"}
+          </p>
+          <p className="text-sm text-green-600">
+            {data.bestPerformer
+              ? `${data.bestPerformer.unrealizedPnLPercent.toFixed(2)}%`
+              : "No data"}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border p-6">
+          <h2 className="font-semibold">Worst Performer</h2>
+          <p className="mt-2 text-2xl font-bold">
+            {data.worstPerformer?.symbol ?? "-"}
+          </p>
+          <p className="text-sm text-red-600">
+            {data.worstPerformer
+              ? `${data.worstPerformer.unrealizedPnLPercent.toFixed(2)}%`
+              : "No data"}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border p-6">
+          <h2 className="font-semibold">Largest Allocation</h2>
+          <p className="mt-2 text-2xl font-bold">
+            {data.allocation.length > 0
+              ? data.allocation.reduce((max, current) =>
+                  current.allocationPercent > max.allocationPercent
+                    ? current
+                    : max
+                ).symbol
+              : "-"}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {data.allocation.length > 0
+              ? `${data.allocation
+                  .reduce((max, current) =>
+                    current.allocationPercent > max.allocationPercent
+                      ? current
+                      : max
+                  )
+                  .allocationPercent.toFixed(2)}%`
+              : "No data"}
+          </p>
+        </div>
+      </div>
 
       <PortfolioValueChart data={data.chartData} />
 
@@ -120,7 +179,7 @@ export function PortfolioLiveView() {
             {data.positions.map((p) => (
               <div
                 key={p.id}
-                className="grid gap-4 rounded-xl border p-4 md:grid-cols-7"
+                className="grid gap-4 rounded-xl border p-4 md:grid-cols-8"
               >
                 <Metric label="Symbol" value={p.symbol} subValue={p.description} />
                 <Metric label="Qty" value={p.quantity} />
@@ -128,6 +187,9 @@ export function PortfolioLiveView() {
                 <Metric label="Price" value={`$${format(p.currentPrice)}`} />
                 <Metric label="Value" value={`$${format(p.marketValue)}`} />
                 <Metric label="Cost" value={`$${format(p.costBasis)}`} />
+                <Metric label="Allocation"
+                    value={`${data.allocation.find((a) => a.symbol === p.symbol)
+                    ?.allocationPercent.toFixed(2) ?? "0.00"}%`}/>
 
                 <div>
                   <p className="text-sm text-muted-foreground">P&L</p>
@@ -177,3 +239,14 @@ function Metric({
     </div>
   );
 }
+
+type Performer = {
+  symbol: string;
+  unrealizedPnLPercent: number;
+  unrealizedPnL: number;
+};
+
+type Allocation = {
+  symbol: string;
+  allocationPercent: number;
+};
