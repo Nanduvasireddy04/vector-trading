@@ -19,14 +19,27 @@ async function getLivePrice(symbol: string) {
   return Number(data.c ?? 0);
 }
 
-async function captureMarketPrices() {
+async function captureMarketPrices(request : Request) {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = request.headers.get("authorization");
+
+  const isAuthorizedCron =
+    cronSecret && authHeader === `Bearer ${cronSecret}`;
+
   const supabase = await createClient();
 
   const { data: userData } = await supabase.auth.getUser();
 
-  if (!userData.user) {
+  if (!userData.user && !isAuthorizedCron) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  } 
+  // const supabase = await createClient();
+
+  // const { data: userData } = await supabase.auth.getUser();
+
+  // if (!userData.user) {
+  //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // }
 
   const { data: assets } = await supabase
     .from("assets")
@@ -70,10 +83,18 @@ async function captureMarketPrices() {
   });
 }
 
-export async function POST() {
-  return captureMarketPrices();
+export async function POST(request: Request) {
+  return captureMarketPrices(request);
 }
 
-export async function GET() {
-  return captureMarketPrices();
+export async function GET(request: Request) {
+  return captureMarketPrices(request);
 }
+
+// export async function POST() {
+//   return captureMarketPrices();
+// }
+
+// export async function GET() {
+//   return captureMarketPrices();
+// }
