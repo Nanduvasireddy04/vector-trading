@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { removeFromWatchlist } from "@/features/watchlist/actions";
 import { Button } from "@/components/ui/button";
 import { TradeForm } from "@/features/trading/trade-form";
+import Link from "next/link";
 
 type WatchlistItem = {
   id: string;
@@ -94,9 +95,16 @@ export function WatchlistTable({ items }: WatchlistTableProps) {
           <div key={item.id} className="rounded-2xl border p-5 space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xl font-bold">
-                  {asset?.display_symbol ?? asset?.symbol}
-                </p>
+                {asset?.symbol ? (
+                  <Link
+                    href={`/stocks/${asset.symbol}`}
+                    className="text-xl font-bold hover:underline"
+                  >
+                    {asset.display_symbol ?? asset.symbol}
+                  </Link>
+                ) : (
+                  <p className="text-xl font-bold">Unknown</p>
+                )}
                 <p className="text-sm text-muted-foreground">
                   {asset?.description}
                 </p>

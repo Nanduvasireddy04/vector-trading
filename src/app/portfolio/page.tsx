@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import Link from "next/link";
+
 
 async function getQuote(symbol: string) {
   const apiKey = process.env.FINNHUB_API_KEY;
@@ -140,11 +142,13 @@ export default async function PortfolioPage() {
 
           <div className="rounded-2xl border p-6">
             <h2 className="font-semibold">Cash Balance</h2>
+
             <p className="mt-2 text-3xl font-bold">
               ${cashBalance.toLocaleString(undefined, {
                 maximumFractionDigits: 2,
               })}
             </p>
+
           </div>
 
           <div className="rounded-2xl border p-6">
@@ -188,7 +192,12 @@ export default async function PortfolioPage() {
                 className="grid grid-cols-7 border-b px-4 py-4 text-sm last:border-b-0"
               >
                 <div>
-                  <p className="font-semibold">{position.symbol}</p>
+                  <Link
+                      href={`/stocks/${position.symbol}`}
+                      className="font-semibold hover:underline"
+                    >
+                      {position.symbol}
+                    </Link>
                   <p className="text-xs text-muted-foreground">
                     {position.description}
                   </p>
