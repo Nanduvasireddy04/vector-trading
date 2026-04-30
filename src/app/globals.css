@@ -5,7 +5,12 @@
   --foreground: #171717;
 }
 
-body {
+/* body {
   background: var(--background);
   color: var(--foreground);
+} */
+
+body {
+  background-color: #0d0d0d;
+  color: #ffffff;
 }
