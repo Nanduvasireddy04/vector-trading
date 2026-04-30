@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { EquityCurveChart } from "@/features/portfolio/EquityCurveChart";
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
@@ -18,6 +19,18 @@ export default async function AnalyticsPage() {
     .order("symbol", { ascending: true })
     .limit(100);
 
+  const { data: portfolioValues } = await supabase
+    .from("portfolio_daily_values")
+    .select("value_date, account_value")
+    .eq("user_id", userData.user.id)
+    .order("value_date", { ascending: true });
+  
+    const equityData =
+    portfolioValues?.map((row) => ({
+    date: row.value_date,
+    value: Number(row.account_value),
+  })) ?? [];
+
   return (
     <DashboardShell userEmail={userData.user.email ?? "User"}>
       <div className="space-y-6">
@@ -28,6 +41,9 @@ export default async function AnalyticsPage() {
           </p>
         </div>
 
+
+        <EquityCurveChart data={equityData} />
+        
         <div className="rounded-2xl border overflow-hidden">
           <div className="grid grid-cols-5 border-b px-4 py-3 text-sm font-medium text-muted-foreground">
             <span>Symbol</span>
