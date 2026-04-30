@@ -1,31 +1,7 @@
-
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { PortfolioValueChart } from "@/features/portfolio/PortfolioValueChart";
-
-async function getLivePrice(symbol: string) {
-  const apiKey = process.env.FINNHUB_API_KEY;
-
-  if (!apiKey) {
-    return 0;
-  }
-
-  const response = await fetch(
-    `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
-      symbol
-    )}&token=${apiKey}`,
-    { cache: "no-store" }
-  );
-
-  if (!response.ok) {
-    return 0;
-  }
-
-  const data = await response.json();
-
-  return Number(data.c ?? 0);
-}
+import { PortfolioLiveView } from "@/features/portfolio/PortfolioLiveView";
 
 export default async function PortfolioPage() {
   const supabase = await createClient();
@@ -36,224 +12,278 @@ export default async function PortfolioPage() {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("cash_balance")
-    .eq("id", userData.user.id)
-    .maybeSingle();
-
-  const { data: positions } = await supabase
-    .from("positions")
-    .select(
-      `
-      id,
-      quantity,
-      average_cost,
-      assets (
-        symbol,
-        display_symbol,
-        description
-      )
-    `
-    )
-    .eq("user_id", userData.user.id)
-    .gt("quantity", 0);
-
-  const portfolioPositions = await Promise.all(
-    (positions ?? []).map(async (position) => {
-      const asset = Array.isArray(position.assets)
-        ? position.assets[0]
-        : position.assets;
-
-      const symbol = asset?.symbol ?? "";
-      const currentPrice = symbol ? await getLivePrice(symbol) : 0;
-
-      const quantity = Number(position.quantity);
-      const averageCost = Number(position.average_cost);
-
-      const marketValue = quantity * currentPrice;
-      const costBasis = quantity * averageCost;
-      const unrealizedPnL = marketValue - costBasis;
-      const unrealizedPnLPercent =
-        costBasis > 0 ? (unrealizedPnL / costBasis) * 100 : 0;
-
-      return {
-        id: position.id,
-        symbol,
-        description: asset?.description ?? "",
-        quantity,
-        averageCost,
-        currentPrice,
-        marketValue,
-        costBasis,
-        unrealizedPnL,
-        unrealizedPnLPercent,
-      };
-    })
-  );
-
-  const cashBalance = Number(profile?.cash_balance ?? 0);
-
-  const holdingsValue = portfolioPositions.reduce(
-    (sum, position) => sum + position.marketValue,
-    0
-  );
-
-  const totalCostBasis = portfolioPositions.reduce(
-    (sum, position) => sum + position.costBasis,
-    0
-  );
-
-  const accountValue = cashBalance + holdingsValue;
-
-  const totalUnrealizedPnL = holdingsValue - totalCostBasis;
-
-  const totalUnrealizedPnLPercent =
-    totalCostBasis > 0 ? (totalUnrealizedPnL / totalCostBasis) * 100 : 0;
-
-  const { data: snapshots } = await supabase
-    .from("portfolio_snapshots")
-    .select("account_value, created_at")
-    .eq("user_id", userData.user.id)
-    .order("created_at", { ascending: true });
-
-  const chartData =
-    snapshots?.map((snapshot) => ({
-      date: new Date(snapshot.created_at).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
-      value: Number(snapshot.account_value),
-    })) ?? [];
-
   return (
-  <DashboardShell userEmail={userData.user.email ?? "User"}>
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Portfolio</h1>
-        <p className="text-muted-foreground">
-          Track your holdings, account value, and performance.
-        </p>
+    <DashboardShell userEmail={userData.user.email ?? "User"}>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Portfolio</h1>
+          <p className="text-muted-foreground">
+            Track your holdings, account value, and live performance.
+          </p>
+        </div>
+
+        <PortfolioLiveView />
       </div>
-
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-2xl border p-6">
-          <h2 className="font-semibold">Account Value</h2>
-          <p className="mt-2 text-3xl font-bold">
-            ${accountValue.toLocaleString()}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border p-6">
-          <h2 className="font-semibold">Cash</h2>
-          <p className="mt-2 text-3xl font-bold">
-            ${cashBalance.toLocaleString()}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border p-6">
-          <h2 className="font-semibold">Holdings</h2>
-          <p className="mt-2 text-3xl font-bold">
-            ${holdingsValue.toLocaleString()}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border p-6">
-          <h2 className="font-semibold">P&L</h2>
-          <p
-            className={`mt-2 text-3xl font-bold ${
-              totalUnrealizedPnL >= 0
-                ? "text-green-600"
-                : "text-red-600"
-            }`}
-          >
-            ${totalUnrealizedPnL.toLocaleString()}
-          </p>
-          <p
-            className={`text-sm ${
-              totalUnrealizedPnL >= 0
-                ? "text-green-600"
-                : "text-red-600"
-            }`}
-          >
-            {totalUnrealizedPnLPercent.toFixed(2)}%
-          </p>
-        </div>
-      </div>
-
-      {/* Chart */}
-      <PortfolioValueChart data={chartData} />
-
-      {/* Holdings */}
-      <div className="rounded-2xl border p-6">
-        <h2 className="mb-4 text-xl font-semibold">Holdings</h2>
-
-        {portfolioPositions.length === 0 ? (
-          <p>No holdings yet.</p>
-        ) : (
-          <div className="space-y-4">
-            {portfolioPositions.map((p) => (
-              <div
-                key={p.id}
-                className="grid gap-4 rounded-xl border p-4 md:grid-cols-7"
-              >
-                <div>
-                  <p className="font-semibold">{p.symbol}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {p.description}
-                  </p>
-                </div>
-
-                <div>
-                  <p>Qty</p>
-                  <p>{p.quantity}</p>
-                </div>
-
-                <div>
-                  <p>Avg</p>
-                  <p>${p.averageCost.toFixed(2)}</p>
-                </div>
-
-                <div>
-                  <p>Price</p>
-                  <p>${p.currentPrice.toFixed(2)}</p>
-                </div>
-
-                <div>
-                  <p>Value</p>
-                  <p>${p.marketValue.toFixed(2)}</p>
-                </div>
-
-                <div>
-                  <p>Cost</p>
-                  <p>${p.costBasis.toFixed(2)}</p>
-                </div>
-
-                <div>
-                  <p>P&L</p>
-                  <p
-                    className={
-                      p.unrealizedPnL >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }
-                  >
-                    ${p.unrealizedPnL.toFixed(2)} (
-                    {p.unrealizedPnLPercent.toFixed(2)}%)
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  </DashboardShell>
-);
+    </DashboardShell>
+  );
 }
 
+
+// import { redirect } from "next/navigation";
+// import { createClient } from "@/lib/supabase/server";
+// import { DashboardShell } from "@/components/layout/dashboard-shell";
+// import { PortfolioValueChart } from "@/features/portfolio/PortfolioValueChart";
+
+// async function getLivePrice(symbol: string) {
+//   const apiKey = process.env.FINNHUB_API_KEY;
+
+//   if (!apiKey) {
+//     return 0;
+//   }
+
+//   const response = await fetch(
+//     `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
+//       symbol
+//     )}&token=${apiKey}`,
+//     { cache: "no-store" }
+//   );
+
+//   if (!response.ok) {
+//     return 0;
+//   }
+
+//   const data = await response.json();
+
+//   return Number(data.c ?? 0);
+// }
+
+// export default async function PortfolioPage() {
+//   const supabase = await createClient();
+
+//   const { data: userData } = await supabase.auth.getUser();
+
+//   if (!userData.user) {
+//     redirect("/login");
+//   }
+
+//   const { data: profile } = await supabase
+//     .from("profiles")
+//     .select("cash_balance")
+//     .eq("id", userData.user.id)
+//     .maybeSingle();
+
+//   const { data: positions } = await supabase
+//     .from("positions")
+//     .select(
+//       `
+//       id,
+//       quantity,
+//       average_cost,
+//       assets (
+//         symbol,
+//         display_symbol,
+//         description
+//       )
+//     `
+//     )
+//     .eq("user_id", userData.user.id)
+//     .gt("quantity", 0);
+
+//   const portfolioPositions = await Promise.all(
+//     (positions ?? []).map(async (position) => {
+//       const asset = Array.isArray(position.assets)
+//         ? position.assets[0]
+//         : position.assets;
+
+//       const symbol = asset?.symbol ?? "";
+//       const currentPrice = symbol ? await getLivePrice(symbol) : 0;
+
+//       const quantity = Number(position.quantity);
+//       const averageCost = Number(position.average_cost);
+
+//       const marketValue = quantity * currentPrice;
+//       const costBasis = quantity * averageCost;
+//       const unrealizedPnL = marketValue - costBasis;
+//       const unrealizedPnLPercent =
+//         costBasis > 0 ? (unrealizedPnL / costBasis) * 100 : 0;
+
+//       return {
+//         id: position.id,
+//         symbol,
+//         description: asset?.description ?? "",
+//         quantity,
+//         averageCost,
+//         currentPrice,
+//         marketValue,
+//         costBasis,
+//         unrealizedPnL,
+//         unrealizedPnLPercent,
+//       };
+//     })
+//   );
+
+//   const cashBalance = Number(profile?.cash_balance ?? 0);
+
+//   const holdingsValue = portfolioPositions.reduce(
+//     (sum, position) => sum + position.marketValue,
+//     0
+//   );
+
+//   const totalCostBasis = portfolioPositions.reduce(
+//     (sum, position) => sum + position.costBasis,
+//     0
+//   );
+
+//   const accountValue = cashBalance + holdingsValue;
+
+//   const totalUnrealizedPnL = holdingsValue - totalCostBasis;
+
+//   const totalUnrealizedPnLPercent =
+//     totalCostBasis > 0 ? (totalUnrealizedPnL / totalCostBasis) * 100 : 0;
+
+//   const { data: snapshots } = await supabase
+//     .from("portfolio_snapshots")
+//     .select("account_value, created_at")
+//     .eq("user_id", userData.user.id)
+//     .order("created_at", { ascending: true });
+
+//   const chartData =
+//     snapshots?.map((snapshot) => ({
+//       date: new Date(snapshot.created_at).toLocaleDateString("en-US", {
+//         month: "short",
+//         day: "numeric",
+//       }),
+//       value: Number(snapshot.account_value),
+//     })) ?? [];
+
+//   return (
+//   <DashboardShell userEmail={userData.user.email ?? "User"}>
+//     <div className="space-y-6">
+//       {/* Header */}
+//       <div>
+//         <h1 className="text-3xl font-bold">Portfolio</h1>
+//         <p className="text-muted-foreground">
+//           Track your holdings, account value, and performance.
+//         </p>
+//       </div>
+
+//       {/* Summary Cards */}
+//       <div className="grid gap-4 md:grid-cols-4">
+//         <div className="rounded-2xl border p-6">
+//           <h2 className="font-semibold">Account Value</h2>
+//           <p className="mt-2 text-3xl font-bold">
+//             ${accountValue.toLocaleString()}
+//           </p>
+//         </div>
+
+//         <div className="rounded-2xl border p-6">
+//           <h2 className="font-semibold">Cash</h2>
+//           <p className="mt-2 text-3xl font-bold">
+//             ${cashBalance.toLocaleString()}
+//           </p>
+//         </div>
+
+//         <div className="rounded-2xl border p-6">
+//           <h2 className="font-semibold">Holdings</h2>
+//           <p className="mt-2 text-3xl font-bold">
+//             ${holdingsValue.toLocaleString()}
+//           </p>
+//         </div>
+
+//         <div className="rounded-2xl border p-6">
+//           <h2 className="font-semibold">P&L</h2>
+//           <p
+//             className={`mt-2 text-3xl font-bold ${
+//               totalUnrealizedPnL >= 0
+//                 ? "text-green-600"
+//                 : "text-red-600"
+//             }`}
+//           >
+//             ${totalUnrealizedPnL.toLocaleString()}
+//           </p>
+//           <p
+//             className={`text-sm ${
+//               totalUnrealizedPnL >= 0
+//                 ? "text-green-600"
+//                 : "text-red-600"
+//             }`}
+//           >
+//             {totalUnrealizedPnLPercent.toFixed(2)}%
+//           </p>
+//         </div>
+//       </div>
+
+//       {/* Chart */}
+//       <PortfolioValueChart data={chartData} />
+
+//       {/* Holdings */}
+//       <div className="rounded-2xl border p-6">
+//         <h2 className="mb-4 text-xl font-semibold">Holdings</h2>
+
+//         {portfolioPositions.length === 0 ? (
+//           <p>No holdings yet.</p>
+//         ) : (
+//           <div className="space-y-4">
+//             {portfolioPositions.map((p) => (
+//               <div
+//                 key={p.id}
+//                 className="grid gap-4 rounded-xl border p-4 md:grid-cols-7"
+//               >
+//                 <div>
+//                   <p className="font-semibold">{p.symbol}</p>
+//                   <p className="text-sm text-muted-foreground">
+//                     {p.description}
+//                   </p>
+//                 </div>
+
+//                 <div>
+//                   <p>Qty</p>
+//                   <p>{p.quantity}</p>
+//                 </div>
+
+//                 <div>
+//                   <p>Avg</p>
+//                   <p>${p.averageCost.toFixed(2)}</p>
+//                 </div>
+
+//                 <div>
+//                   <p>Price</p>
+//                   <p>${p.currentPrice.toFixed(2)}</p>
+//                 </div>
+
+//                 <div>
+//                   <p>Value</p>
+//                   <p>${p.marketValue.toFixed(2)}</p>
+//                 </div>
+
+//                 <div>
+//                   <p>Cost</p>
+//                   <p>${p.costBasis.toFixed(2)}</p>
+//                 </div>
+
+//                 <div>
+//                   <p>P&L</p>
+//                   <p
+//                     className={
+//                       p.unrealizedPnL >= 0
+//                         ? "text-green-600"
+//                         : "text-red-600"
+//                     }
+//                   >
+//                     ${p.unrealizedPnL.toFixed(2)} (
+//                     {p.unrealizedPnLPercent.toFixed(2)}%)
+//                   </p>
+//                 </div>
+//               </div>
+//             ))}
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   </DashboardShell>
+// );
+// }
+// -------------------------------------------------------------------------------------------------------------
 // import { redirect } from "next/navigation";
 // import { createClient } from "@/lib/supabase/server";
 // import { DashboardShell } from "@/components/layout/dashboard-shell";
