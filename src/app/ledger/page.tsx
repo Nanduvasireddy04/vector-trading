@@ -36,20 +36,28 @@ export default async function LedgerPage() {
     <DashboardShell userEmail={userData.user.email ?? "User"}>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Cash Ledger</h1>
+          <h1 className="text-3xl font-bold">Ledger</h1>
           <p className="text-muted-foreground">
-            Track all cash movements and transaction history.
+            Complete record of all cash movements from trades, deposits, and account activity.
           </p>
         </div>
 
-        <div className="rounded-2xl border overflow-hidden">
+        <div className="grid grid-cols-6 border-b px-4 py-3 text-sm font-medium text-muted-foreground">
+          <span>Type</span>
+          <span>Symbol</span>
+          <span>Side</span>
+          <span>Amount</span>
+          <span>Order</span>
+          <span>Date</span>
+        </div>
+        {/* <div className="rounded-2xl border overflow-hidden">
           <div className="grid grid-cols-5 border-b px-4 py-3 text-sm font-medium text-muted-foreground">
             <span>Type</span>
             <span>Symbol</span>
             <span>Amount</span>
             <span>Order</span>
             <span>Date</span>
-          </div>
+          </div> */}
 
           {!entries || entries.length === 0 ? (
             <div className="p-6 text-muted-foreground">
@@ -70,13 +78,17 @@ export default async function LedgerPage() {
               return (
                 <div
                   key={entry.id}
-                  className="grid grid-cols-5 border-b px-4 py-4 text-sm last:border-b-0"
+                  className="grid grid-cols-6 border-b px-4 py-4 text-sm last:border-b-0"
                 >
                   <span className="capitalize">
                     {entry.transaction_type.replace("_", " ")}
                   </span>
 
                   <span className="font-semibold">{symbol ?? "-"}</span>
+
+                  <span className="capitalize text-muted-foreground">
+                    {order?.side ?? "-"}
+                  </span>
 
                   <span
                     className={
@@ -100,7 +112,7 @@ export default async function LedgerPage() {
             })
           )}
         </div>
-      </div>
+      {/* </div> */}
     </DashboardShell>
   );
 }

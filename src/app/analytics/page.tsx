@@ -37,7 +37,7 @@ export default async function AnalyticsPage() {
         <div>
           <h1 className="text-3xl font-bold">Analytics</h1>
           <p className="text-muted-foreground">
-            View transformed market data and daily return metrics.
+            Portfolio intelligence powered by transformed trading and market data.
           </p>
         </div>
 
@@ -84,3 +84,4 @@ export default async function AnalyticsPage() {
     </DashboardShell>
   );
 }
+
